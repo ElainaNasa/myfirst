@@ -3,7 +3,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99 -g
 TARGET = mana
-OBJS = main.o student.o fileop.o sort.o print.o calculate.o analysis.o search.o speak.o
+OBJS = main.o student.o fileop.o sort.o print.o calculate.o analysis.o search.o speak.o menu.o
 
 # 默认目标：编译所有源文件生成可执行程序
 all: $(TARGET)
@@ -13,7 +13,7 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS)
 
 # 编译主程序
-main.o: main.c student.h fileop.h sort.h print.h calculate.h analysis.h search.h speak.h
+main.o: main.c student.h fileop.h sort.h print.h calculate.h analysis.h search.h speak.h menu.h
 	$(CC) $(CFLAGS) -c main.c
 
 # 编译学生模块
@@ -48,6 +48,10 @@ search.o: search.c search.h student.h
 speak.o: speak.c speak.h
 	$(CC) $(CFLAGS) -c speak.c
 
+# 编译菜单模块
+menu.o: menu.c menu.h
+	$(CC) $(CFLAGS) -c menu.c
+
 # 单独编译目标文件（符合要求的方式）
 compile_objects:
 	$(CC) $(CFLAGS) -c student.c
@@ -58,10 +62,11 @@ compile_objects:
 	$(CC) $(CFLAGS) -c analysis.c
 	$(CC) $(CFLAGS) -c search.c
 	$(CC) $(CFLAGS) -c speak.c
+	$(CC) $(CFLAGS) -c menu.c
 
 # 使用目标文件编译主程序
 build_with_objects: compile_objects
-	$(CC) $(CFLAGS) -o $(TARGET) main.c student.o fileop.o sort.o print.o calculate.o analysis.o search.o speak.o
+	$(CC) $(CFLAGS) -o $(TARGET) main.c student.o fileop.o sort.o print.o calculate.o analysis.o search.o speak.o menu.o
 
 # 清理生成的文件
 clean:
