@@ -252,33 +252,43 @@ void search_by_name_menu() {
     msg[0] = '\0';
 
     scanf("%s", name);
-    
+
     res = searchByName(&db,name);
+    if (res != NULL) {
+        printf("\nStudent is found\n");
 
-    print_students_from_query(res);
-    
-    /*int index = search_by_name(name);
-    if (index != -1) {
-        printf("\nStudent found:\n");
-
-        snprintf(msg, sizeof(msg),"Student %s found", name);
+        snprintf(msg, sizeof(msg),"Student %s is found", name);
         speak(msg);
         msg[0] = '\0';
 
-        print_header();
-        print_student(&students[index]);
+        
+        print_students_from_query(res);
+
         
     } else {
         printf("Student with name '%s' not found.\n", name);
         snprintf(msg, sizeof(msg),"Student %s not found", name);
         speak(msg);
         msg[0] = '\0';
-    }*/
+    }
 }
 
 void search_by_id_menu() {
     char msg[256];  
     char id[ID_LENGTH];
+
+    MYSQL_RES *res;
+
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    
+    if (!dbConnect(&db, &config)) {
+    printf("failed to connect to Database\n");
+    return;
+    }
+
     printf("Enter ID to search: ");
 
     snprintf(msg, sizeof(msg),"Enter ID to search");
@@ -287,16 +297,18 @@ void search_by_id_menu() {
 
     scanf("%s", id);
     
-    int index = search_by_id(id);
-    if (index != -1) {
-        printf("\nStudent found:\n");
+    res = searchByID(&db,id);
+
+    if (res != NULL) {
+        printf("\nStudent found\n");
 
         snprintf(msg, sizeof(msg),"Student %s found", id);
         speak(msg);
         msg[0] = '\0';
+
         
-        print_header();
-        print_student(&students[index]);
+        print_students_from_query(res);
+        
     } else {
         printf("Student with ID '%s' not found.\n", id);
 
@@ -308,8 +320,19 @@ void search_by_id_menu() {
 
 void modify_by_id() {
     char msg[256];
-
+    
     char id[ID_LENGTH];
+
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    
+    if (!dbConnect(&db, &config)) {
+    printf("failed to connect to Database\n");
+    return;
+    }
+
     printf("Enter student ID to modify: ");
 
     snprintf(msg, sizeof(msg),"Enter student ID to modify");
@@ -406,13 +429,26 @@ void modify_by_id() {
     snprintf(msg, sizeof(msg),"Student record modified successfully.\n");
     speak(msg);
     msg[0] = '\0';
-
+    
+    modifyByID(&db, id, stu);
     
 }
 
 void delete_by_id() {
     char msg[256];    
     char id[ID_LENGTH];
+
+
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    
+    if (!dbConnect(&db, &config)) {
+    printf("failed to connect to Database\n");
+    return;
+    }
+
     printf("Enter student ID to delete: ");
 
     snprintf(msg, sizeof(msg),"Enter student ID to delete: ");
@@ -453,10 +489,23 @@ void delete_by_id() {
     speak(msg);
     msg[0] = '\0';
 
+    deleteByID(&db, id);
 }
 
 void sort_by_course_menu() {
     char msg[256];
+    char *courses[] = {"ics", "pdp", "ds", "dl"};
+    
+    MYSQL_RES *res;
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    
+    if (!dbConnect(&db, &config)) {
+    printf("failed to connect to Database\n");
+    return;
+    }
 
     printf("\nSelect course to sort by:\n");
          
@@ -501,7 +550,30 @@ void sort_by_course_menu() {
     
     int choice;
     scanf("%d", &choice);
-    
+    if(choice == 1)
+    {
+        res = sortByCourse(&db, "ics");
+    }
+    else if(choice == 2)
+    {
+        res = sortByCourse(&db, "pdp");
+    }
+    else if(choice == 3)
+    {
+        res = sortByCourse(&db, "ds");
+    }
+    else if(choice == 4)
+    {
+        res = sortByCourse(&db, "dl");
+    }
+    else
+    {
+        printf("Invalid choice.\n");
+        return;
+    } 
+
+    print_students_from_query(res);
+    /*
     SORT_OPTION option;
     switch (choice) {
         case 1: option = SORT_BY_ICS; break;
@@ -521,6 +593,7 @@ void sort_by_course_menu() {
     msg[0] = '\0';
 
     print_all_students();
+    */
 }
 
 void save_to_text_file_menu() {
