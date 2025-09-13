@@ -11,6 +11,7 @@
 #include "analysis.h"
 #include "search.h"
 #include "speak.h"
+#include "mySQL.h"
 
 // 函数声明
 void display_menu();
@@ -27,9 +28,10 @@ void load_from_binary_file_menu();
 
 int main() {
     char msg[256];
-    init_students();
     int choice;
-    
+
+    init_students();
+
     printf("=== Student Grade Management System ===\n");
     
     while (1) {
@@ -122,6 +124,15 @@ void append_record() {
     char msg[256];
     int returnValue = 0;
     
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    
+    if (!dbConnect(&db, &config)) {
+    printf("failed to connect to Database\n");
+    return;
+}
     if (student_count >= MAX_STUDENTS) {
         printf("Error: Maximum number of students (%d) reached.\n", MAX_STUDENTS);
         return;
@@ -135,10 +146,28 @@ void append_record() {
     msg[0] = '\0';
 
     printf("Student ID: ");
-    scanf("%s", new_student.stu_id);
     
+    if((returnValue = scanf("%s", new_student.stu_id)) != 1){
+        printf("Invalid input for score. Please enter a valid number.\n");
+        snprintf(msg, sizeof(msg),"Invalid input for score. Please enter a valid number");
+        speak(msg);
+        msg[0] = '\0';
+        sleep(2);
+        while (getchar() != '\n'); // 清除输入缓冲区
+        return;
+    };
+
     printf("Name: ");
-    scanf("%s", new_student.stu_name);
+    
+    if((returnValue = scanf("%s", new_student.stu_name)) != 1){
+        printf("Invalid input for score. Please enter a valid number.\n");
+        snprintf(msg, sizeof(msg),"Invalid input for score. Please enter a valid number");
+        speak(msg);
+        msg[0] = '\0';
+        sleep(2);
+        while (getchar() != '\n'); // 清除输入缓冲区
+        return;
+    };
     
     printf("Computer Systems (iCS) score: ");
     if((returnValue = scanf("%f", &new_student.score.ics)) != 1){
@@ -197,11 +226,25 @@ void append_record() {
     speak(msg);
     msg[0] = '\0';
 
+    insertStudent(&db, &new_student);
 }
 
 void search_by_name_menu() {
     char msg[256];
     char name[NAME_LENGTH];
+    MYSQL_RES *res;
+
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    
+    if (!dbConnect(&db, &config)) {
+    printf("failed to connect to Database\n");
+    return;
+    }
+
+
     printf("Enter name to search: ");
     
     strcpy(msg, "Enter name to search: ");
@@ -210,7 +253,11 @@ void search_by_name_menu() {
 
     scanf("%s", name);
     
-    int index = search_by_name(name);
+    res = searchByName(&db,name);
+
+    print_students_from_query(res);
+    
+    /*int index = search_by_name(name);
     if (index != -1) {
         printf("\nStudent found:\n");
 
@@ -226,7 +273,7 @@ void search_by_name_menu() {
         snprintf(msg, sizeof(msg),"Student %s not found", name);
         speak(msg);
         msg[0] = '\0';
-    }
+    }*/
 }
 
 void search_by_id_menu() {
