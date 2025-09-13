@@ -494,7 +494,6 @@ void delete_by_id() {
 
 void sort_by_course_menu() {
     char msg[256];
-    char *courses[] = {"ics", "pdp", "ds", "dl"};
     
     MYSQL_RES *res;
     DBConfig config;
@@ -573,27 +572,6 @@ void sort_by_course_menu() {
     } 
 
     print_students_from_query(res);
-    /*
-    SORT_OPTION option;
-    switch (choice) {
-        case 1: option = SORT_BY_ICS; break;
-        case 2: option = SORT_BY_PDP; break;
-        case 3: option = SORT_BY_DS; break;
-        case 4: option = SORT_BY_DL; break;
-        default:
-            printf("Invalid choice.\n");
-            return;
-    }
-    
-    sort_students_by_course(option);
-    printf("\nStudents sorted by selected course:\n");
-        
-    snprintf(msg, sizeof(msg),"Students sorted by selected course");
-    speak(msg);
-    msg[0] = '\0';
-
-    print_all_students();
-    */
 }
 
 void save_to_text_file_menu() {

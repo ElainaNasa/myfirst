@@ -3,6 +3,8 @@
 
 #include "student.h"
 #include "speak.h"
+#include "mySQL.h"  
+#include "print.h"
 /**
  * @brief 计算每个学生的总分和平均分
  */

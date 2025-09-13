@@ -1,5 +1,8 @@
 #include "analysis.h"
+#include "speak.h"
+#include "mySQL.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 // 获取成绩等级
 GRADE_LEVEL get_grade_level(float score) {
@@ -22,64 +25,76 @@ const char* get_grade_name(GRADE_LEVEL level) {
     }
 }
 
-/**
- * @brief 对每门课程进行成绩统计分析
- */
-void analyze_course_grades() {
+// MySQL版成绩统计分析
+void analyze_course_grades_mysql() {
     char msg[256];
+    DBConfig config;
+    DBConnection db;
 
-    if (student_count == 0) {
-        printf("No students to analyze.\n");
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
 
-        snprintf(msg, sizeof(msg),"No students to analyze");
-        speak(msg);
-        msg[0] = '\0';
-
+    if (!dbConnect(&db, &config)) {
+        printf("Failed to connect to database.\n");
         return;
     }
 
-    // 初始化计数器
-    int ics_counts[5] = {0};
-    int pdp_counts[5] = {0};
-    int ds_counts[5] = {0};
-    int dl_counts[5] = {0};
-
-    // 统计各科目成绩等级
-    for (int i = 0; i < student_count; i++) {
-        ics_counts[get_grade_level(students[i].score.ics)]++;
-        pdp_counts[get_grade_level(students[i].score.pdp)]++;
-        ds_counts[get_grade_level(students[i].score.ds)]++;
-        dl_counts[get_grade_level(students[i].score.dl)]++;
+    // 获取总学生数
+    MYSQL_RES* res_total = dbQuery(&db, "SELECT COUNT(*) FROM students;");
+    int total_students = 0;
+    if (res_total) {
+        MYSQL_ROW row = mysql_fetch_row(res_total);
+        if (row && row[0]) total_students = atoi(row[0]);
+        dbFreeResult(res_total);
     }
 
-    // 打印统计结果
-    printf("\nGrade Statistics Analysis:\n");
-    printf("==========================\n\n");
-    
-    snprintf(msg, sizeof(msg),"Grade Statistics Analysis");
-    speak(msg);
-    msg[0] = '\0';
+    if (total_students == 0) {
+        printf("No students in database to analyze.\n");
+        snprintf(msg, sizeof(msg), "No students in database to analyze.");
+        speak(msg);
+        dbClose(&db);
+        return;
+    }
 
-    const char* courses[] = {"Computer Systems (iCS)", "Programming Practice (PDP)", 
-                            "Data Structures (DS)", "Digital Logic (DL)"};
-    int *counts[] = {ics_counts, pdp_counts, ds_counts, dl_counts};
+    const char* courses[] = {"ics", "pdp", "ds", "dl"};
+    const char* course_names[] = {"Computer Systems (iCS)", "Programming Practice (PDP)",
+                                  "Data Structures (DS)", "Digital Logic (DL)"};
 
-    for (int course = 0; course < 4; course++) {
-        printf("%s:\n", courses[course]);
+    for (int c = 0; c < 4; c++) {
+        // 查询当前课程所有成绩
+        char query[128];
+        snprintf(query, sizeof(query), "SELECT %s FROM students;", courses[c]);
+        MYSQL_RES* res = dbQuery(&db, query);
+        if (!res) continue;
+
+        int counts[5] = {0}; // 五个等级计数
+        MYSQL_ROW row;
+        while ((row = mysql_fetch_row(res)) != NULL) {
+            float score = row[0] ? atof(row[0]) : 0;
+            counts[get_grade_level(score)]++;
+        }
+        dbFreeResult(res);
+
+        // 打印分析结果
+        printf("%s:\n", course_names[c]);
         printf("----------------------------------------\n");
-        
-        for (int level = 0; level < 5; level++) {
-            int count = counts[course][level];
-            float percentage = (float)count / student_count * 100;
-            
-            printf("%-20s: %2d students (%5.1f%%)\n", 
-                   get_grade_name(level), count, percentage);
+        snprintf(msg, sizeof(msg), "%s statistics:", course_names[c]);
+        speak(msg);
 
-            snprintf(msg, sizeof(msg),"%s: %d students %.1f percent", get_grade_name(level), count, percentage);
+        for (int level = 0; level < 5; level++) {
+            float percentage = (float)counts[level] / total_students * 100;
+            printf("%-20s: %2d students (%5.1f%%)\n", get_grade_name(level), counts[level], percentage);
+
+            snprintf(msg, sizeof(msg), "%s: %d students %.1f percent",
+                     get_grade_name(level), counts[level], percentage);
             speak(msg);
-            msg[0] = '\0';
-            
         }
         printf("\n");
     }
+
+    dbClose(&db);
+}
+
+// 保留原函数名作为别名，兼容现有 main.c 菜单调用
+void analyze_course_grades() {
+    analyze_course_grades_mysql();
 }
