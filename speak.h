@@ -7,10 +7,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#define TTS_PATH "/home/stu2023112287/SummerTTS/build/tts_test"
-#define MODEL_PATH "/home/stu2023112287/SummerTTS/models/single_speaker_english.bin"
-#define OUT_WAV "/home/stu2023112287/SummerTTS/tmp_out.wav"
-#define APLAY_CMD "aplay /home/stu2023112287/SummerTTS/tmp_out.wav"
+#define TTS_PATH "/home/yuze-sun/SummerTTS/build/tts_test"
+#define MODEL_PATH "/home/yuze-sun/SummerTTS/models/single_speaker_english.bin"
+#define OUT_WAV "/home/yuze-sun/SummerTTS/tmp_out.wav"
+#define APLAY_CMD "aplay /home/yuze-sun/SummerTTS/tmp_out.wav"
 
 void speak(const char *text);
 
