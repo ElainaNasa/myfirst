@@ -25,6 +25,11 @@ void save_to_text_file_menu();
 void load_from_text_file_menu();
 void save_to_binary_file_menu();
 void load_from_binary_file_menu();
+void load_text_to_database(const char *filename);
+void save_database_to_text(const char *filename);
+void save_database_to_binary(const char *filename);
+void load_binary_to_database(const char *filename);
+
 
 int main() {
     char msg[256];
@@ -574,122 +579,208 @@ void sort_by_course_menu() {
     print_students_from_query(res);
 }
 
-void save_to_text_file_menu() {
+void load_text_to_database(const char *filename) {
     char msg[256];
-    char filename[100];
-    printf("Enter filename to save (e.g., scoresheet.txt): ");
-     
-    snprintf(msg, sizeof(msg),"Enter filename to save (e.g. scoresheet.txt)");
-    speak(msg);
-    msg[0] = '\0';
+    DBConfig config;
+    DBConnection db;
 
-
-    scanf("%s", filename);
-    
-    if (save_to_text_file(filename) == 0) {
-        printf("Data saved to %s successfully.\n", filename);
-
-        snprintf(msg, sizeof(msg),"Enter filename to save (e.g. scoresheet.txt)");
-        speak(msg);
-        msg[0] = '\0';
-
-    } else {
-        printf("Failed to save data to %s.\n", filename);
-        
-        snprintf(msg, sizeof(msg),"Failed to save data to %s", filename);
-        speak(msg);
-        msg[0] = '\0';
-
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    if (!dbConnect(&db, &config)) {
+        printf("Failed to connect to database.\n");
+        return;
     }
+
+    if (load_from_text_file(filename) != 0) {
+        printf("Failed to load from text file %s.\n", filename);
+        return;
+    }
+
+    for (int i = 0; i < MAX_STUDENTS; i++) {
+        if (strlen(students[i].stu_id) == 0) continue;
+
+        char query[512];
+        snprintf(query, sizeof(query),
+                 "INSERT INTO students (stu_id, stu_name, ics, pdp, ds, dl) "
+                 "VALUES ('%s','%s',%f,%f,%f,%f) "
+                 "ON DUPLICATE KEY UPDATE "
+                 "stu_name='%s', ics=%f, pdp=%f, ds=%f, dl=%f;",
+                 students[i].stu_id, students[i].stu_name,
+                 students[i].score.ics, students[i].score.pdp,
+                 students[i].score.ds, students[i].score.dl,
+                 students[i].stu_name,
+                 students[i].score.ics, students[i].score.pdp,
+                 students[i].score.ds, students[i].score.dl);
+        dbExecute(&db, query);
+    }
+
+    printf("Text file %s loaded into database successfully.\n", filename);
+    snprintf(msg, sizeof(msg), "Text file %s loaded into database successfully.", filename);
+    speak(msg);
+    dbClose(&db);
 }
 
+void save_database_to_text(const char *filename) {
+    char msg[256];
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    if (!dbConnect(&db, &config)) {
+        printf("Failed to connect to database.\n");
+        return;
+    }
+
+    MYSQL_RES *res = dbQuery(&db, "SELECT * FROM students;");
+    if (!res) {
+        printf("Failed to fetch data from database.\n");
+        dbClose(&db);
+        return;
+    }
+
+    FILE *fp = fopen(filename, "w");
+    if (!fp) {
+        printf("Failed to open file %s for writing.\n", filename);
+        dbFreeResult(res);
+        dbClose(&db);
+        return;
+    }
+
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res))) {
+        fprintf(fp, "%s %s %s %s %s %s\n", row[0], row[1], row[2], row[3], row[4], row[5]);
+    }
+
+    fclose(fp);
+    dbFreeResult(res);
+    dbClose(&db);
+
+    printf("Database saved to text file %s successfully.\n", filename);
+    snprintf(msg, sizeof(msg), "Database saved to text file %s successfully.", filename);
+    speak(msg);
+}
+void save_database_to_binary(const char *filename) {
+    char msg[256];
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    if (!dbConnect(&db, &config)) {
+        printf("Failed to connect to database.\n");
+        return;
+    }
+
+    MYSQL_RES *res = dbQuery(&db, "SELECT * FROM students;");
+    if (!res) {
+        printf("Failed to fetch data from database.\n");
+        dbClose(&db);
+        return;
+    }
+
+    FILE *fp = fopen(filename, "wb");
+    if (!fp) {
+        printf("Failed to open file %s for writing.\n", filename);
+        dbFreeResult(res);
+        dbClose(&db);
+        return;
+    }
+
+    MYSQL_ROW row;
+    STUDENT stu;
+    while ((row = mysql_fetch_row(res))) {
+        strncpy(stu.stu_id, row[0], ID_LENGTH - 1);
+        strncpy(stu.stu_name, row[1], NAME_LENGTH - 1);
+        stu.score.ics = atof(row[2]);
+        stu.score.pdp = atof(row[3]);
+        stu.score.ds  = atof(row[4]);
+        stu.score.dl  = atof(row[5]);
+        fwrite(&stu, sizeof(STUDENT), 1, fp);
+    }
+
+    fclose(fp);
+    dbFreeResult(res);
+    dbClose(&db);
+
+    printf("Database saved to binary file %s successfully.\n", filename);
+    snprintf(msg, sizeof(msg), "Database saved to binary file %s successfully.", filename);
+    speak(msg);
+}
+void load_binary_to_database(const char *filename) {
+    char msg[256];
+    DBConfig config;
+    DBConnection db;
+
+    initDBConfig(&config, "localhost", "student", "11111111", "testdb", 3306);
+    if (!dbConnect(&db, &config)) {
+        printf("Failed to connect to database.\n");
+        return;
+    }
+
+    FILE *fp = fopen(filename, "rb");
+    if (!fp) {
+        printf("Failed to open binary file %s.\n", filename);
+        dbClose(&db);
+        return;
+    }
+
+    STUDENT stu;
+    while (fread(&stu, sizeof(STUDENT), 1, fp) == 1) {
+        char query[512];
+        snprintf(query, sizeof(query),
+                 "INSERT INTO students (stu_id, stu_name, ics, pdp, ds, dl) "
+                 "VALUES ('%s','%s',%f,%f,%f,%f) "
+                 "ON DUPLICATE KEY UPDATE "
+                 "stu_name='%s', ics=%f, pdp=%f, ds=%f, dl=%f;",
+                 stu.stu_id, stu.stu_name,
+                 stu.score.ics, stu.score.pdp,
+                 stu.score.ds, stu.score.dl,
+                 stu.stu_name,
+                 stu.score.ics, stu.score.pdp,
+                 stu.score.ds, stu.score.dl);
+        dbExecute(&db, query);
+    }
+
+    fclose(fp);
+    printf("Binary file %s loaded into database successfully.\n", filename);
+    snprintf(msg, sizeof(msg), "Binary file %s loaded into database successfully.", filename);
+    speak(msg);
+
+    dbClose(&db);
+}
 void load_from_text_file_menu() {
-    char msg[256];
-    char filename[100];
-   
-    snprintf(msg, sizeof(msg),"Enter filename to load:");
-    speak(msg);
-    msg[0] = '\0';
+    char filename[256];
 
-    printf("Enter filename to load: ");
+    printf("Enter the text file to load into database: ");
+    scanf("%255s", filename);
 
-    scanf("%s", filename);
-    
-    if (load_from_text_file(filename) == 0) {
-        printf("Data loaded from %s successfully.\n", filename);
-
-        printf("Loaded %d student records.\n", student_count);
-
-        snprintf(msg, sizeof(msg),"Data loaded from %s successfully", filename);
-        speak(msg);
-        msg[0] = '\0';
-
-        snprintf(msg, sizeof(msg),"Loaded %d student records.\n", student_count);
-        speak(msg);
-        msg[0] = '\0';
-
-    } else {
-        printf("Failed to load data from %s.\n", filename);
-
-        snprintf(msg, sizeof(msg),"Failed to load data from %s.\n", filename);
-        speak(msg);
-        msg[0] = '\0';
-    }
+    load_text_to_database(filename);  // 直接调用底层函数处理
 }
 
-void save_to_binary_file_menu() {
-    char msg[256];
-    char filename[100];
-    printf("Enter filename to save: ");
+// 将数据库保存到文本文件
+void save_to_text_file_menu() {
+    char filename[256];
 
-    snprintf(msg, sizeof(msg),"Enter filename to save");
-    speak(msg);
-    msg[0] = '\0';
+    printf("Enter the text file to save database to: ");
+    scanf("%255s", filename);
 
-    scanf("%s", filename);
-    
-    if (save_to_binary_file(filename) == 0) {
-        printf("Data saved to %s successfully.\n", filename);
-        
-        snprintf(msg, sizeof(msg),"Data saved to %s successfully.\n", filename);
-        speak(msg);
-        msg[0] = '\0';
-
-    } else {
-        printf("Failed to save data to %s.\n", filename);
-
-        snprintf(msg, sizeof(msg),"Failed to save data to %s.\n", filename);
-        speak(msg);
-        msg[0] = '\0';
-
-    }
+    save_database_to_text(filename);  // 直接调用
 }
 
+// 从二进制文件加载到数据库
 void load_from_binary_file_menu() {
-    char msg[256];
-    char filename[100];
-    printf("Enter filename to load: ");
+    char filename[256];
 
-    snprintf(msg, sizeof(msg),"Enter filename to load");
-    speak(msg);
-    msg[0] = '\0';
+    printf("Enter the binary file to load into database: ");
+    scanf("%255s", filename);
 
-    scanf("%s", filename);
-    
-    if (load_from_binary_file(filename) == 0) {
-        printf("Data loaded from %s successfully.\n", filename);
-        printf("Loaded %d student records.\n", student_count);
-        
-        snprintf(msg, sizeof(msg),"Data loaded from %s successfully.Loaded %d student records.\n", filename, student_count);
-        speak(msg);
-        msg[0] = '\0';
+    load_binary_to_database(filename);  // 直接调用
+}
 
-    } else {
-        printf("Failed to load data from %s.\n", filename);
+// 将数据库保存到二进制文件
+void save_to_binary_file_menu() {
+    char filename[256];
 
-        snprintf(msg, sizeof(msg),"Failed to load data from %s.\n", filename);
-        speak(msg);
-        msg[0] = '\0';
+    printf("Enter the binary file to save database to: ");
+    scanf("%255s", filename);
 
-    }
+    save_database_to_binary(filename);  // 直接调用
 }
